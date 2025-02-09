@@ -26,7 +26,7 @@
       AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
       WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
-show_board=1;
+show_board=0;
 show_base=1;
 show_top=1;
 show_split=1;
@@ -35,11 +35,122 @@ show_split=1;
 //   0 = 2,3 B+
 //   1 = 4 B+
 //   2 = A+
+//   3 = Zero
 rpi=0;
 
-show_cutouts=0;
+// Options
+addvents=0;
 gpiogap=0;
+
+// Debug
+show_cutouts=0;
 testbuild=0;
+
+// Advanced options
+split = 9;
+
+////////////////////////////////////////////////////////////////////
+//
+// Custom additional boards/cutouts can be added here
+//
+////////////////////////////////////////////////////////////////////
+
+// If there are options, we can use the same pattern as for the Pi
+mdopt = 0;
+
+// Mechanical detail of add-on board
+md_boards = [
+[0,0,0]
+];
+md_board = md_boards[mdopt];
+
+// Device/connector cutouts
+//   [position], [size], [hole adj], [size adj], shape
+//
+// Shapes: 0=cube, 1=cylinder (circular in x-y plane)
+//
+// Relates to board not box
+// So need to add th+padxy to x,y and th+padbot+board.z to z
+md_gpio    = [[ 7.2,50.0, 0.0],[51.0, 5.1, 9.0],[ 0.0, 0.0, 0.0],[ 0.0, 0.0, 0.0],0];
+md_gpio_e  = [[ 7.2,50.0, 0.0],[51.0, 5.1, 9.0],[ 0.0, 0.0, 0.0],[ 0.0, 0.0, 0.0],0];
+
+// List all device/connector cutouts per add-on board
+md_dev = [
+//[md_gpio],  // Board option 0
+];
+// Additional cut-outs
+md_dev_e = [
+//[md_gpio_e],  // Board option 0
+];
+
+// Devices on the board
+md_devices = md_dev[mdopt];
+md_extras  = md_dev_e[mdopt];
+
+// Other parameters for the add-on board.
+// Leave padbot/top as zero if no additional boards.
+md_padxy  = 1.5;
+md_padbot = 0;  // height of MD board above RPi board
+md_padtop = 0;  // height above MD board
+
+//
+// Following functions plug into the main construction and
+// probably won't need updating once the above parameters
+// are all setup properly for the custom board.
+//
+
+// Function to colour in the additional cutouts if present
+module md_show_cutouts() {
+    translate([th+padxy, th+padxy, th+padbot+board.z+md_padbot+md_board.z]) {
+      color("Purple") {
+          for (mtd=md_devices) {
+            translate(mtd[0]+mtd[2]) {
+                if (mtd[4] == 1) {
+                    cylinder(h=mtd[1].z+mtd[3].z, d=mtd[1].x+mtd[3].x, $fn=10);
+                } else {
+                    cube(mtd[1]+mtd[3]);
+                }
+            }
+          }
+      }
+    }
+}
+
+// Function to show the additional board
+module md_show_board () {
+    translate([th+padxy, th+padxy, th+padbot+board.z+md_padbot]) {
+        color("green") cube(md_board);
+        color("silver") {
+            for (mdd=md_devices) {
+                translate(mdd[0]+[0,0,md_board.z]) cube(mdd[1]);
+            }
+        }
+    }
+}
+
+// Function to add in the additional cutouts if present
+module md_cutouts () {
+    translate([0, 0, md_padbot+md_board.z]) {
+        for (mdd=md_devices) {
+            translate(mdd[0]+mdd[2]) {
+                if (mdd[4] == 1) {
+                    cylinder(h=mdd[1].z+mdd[3].z, d=mdd[1].x+mdd[3].x, $fn=10);
+                } else {
+                    cube(mdd[1]+mdd[3]);
+                }
+            }
+        }
+        for (mde=md_extras) {
+            translate(mde[0]+mde[2]) cube(mde[1]+mde[3]);
+        }
+    }
+}
+
+////////////////////////////////////////////////////////////////////
+//
+// End of custom additional boards/cutouts
+//
+////////////////////////////////////////////////////////////////////
 
 //
 // Mechanical information for Raspberry Pi Boards:
@@ -50,28 +161,43 @@ boards = [
     [85, 56, 1.5],  // 2,3 B+
     [85, 56, 1.5],  // 4 B+
     [65, 56, 1.5],  // 1,3 A+
+    [65, 30, 1.5],  // Zero
 ];
 
 board = boards[rpi];
 
+// Space above the board
+// Note: A+/Zero can be shorter
+toppadding = [ 21, 21, 13, 13 ];
+
 th = 2;
 padxy = 1.5;
 padbot = 3;
-padtop = rpi==2 ? 13 : 21;  // A+ can be shorter
-box = board + [th*2+padxy*2,th*2+padxy*2,th*2+padtop+padbot];
+// If there is a custom add-on board, then use that paddtop value here
+// Assumes that original padtop value is accounted for in the custom
+// board's md_padbot value...
+padtop = md_padtop > 0 ? md_padtop : toppadding[rpi];
+box = board + [th*2+padxy*2,th*2+padxy*2,th*2+padtop+padbot+md_padbot+md_board.z];
 cornerrounding = 4;
-split = 9;
 
 // Relate to board coords not box
 // So need to add th+padxy to x,y and th+padbot to z
-mountholes = [
+mh = [   // A+/B_
 [3.5,    3.5,    0],
 [3.5,    3.5+49, 0],
 [3.5+58, 3.5+49, 0],
 [3.5+58, 3.5,    0]
 ];
+mh_z = [  // Zero
+[3.5,    3.5,    0],
+[3.5,    3.5+23, 0],
+[3.5+58, 3.5+23, 0],
+[3.5+58, 3.5,    0]
+];
 mounthole_d = 2.5;
 standoff_d = 6.0;
+clamphole_d = 3.0;
+mountholes = [mh, mh, mh, mh_z];
 
 // Position of lips for the case
 //  [x, y, z, len, rotation] rot=0 in y direction
@@ -88,14 +214,20 @@ lips_b = [
   [th+padxy+2, box.y, split, box.x-2*(th+padxy+2), -90], // blank side
   // No lip on eth/usb end for B+
 ];
-lips = [lips_b,lips_b,lips_a];
+lips_z = [
+  [0, 5, split, 6, 0], // SD side
+  [36, 0, split, 8.5, 90], // con side
+  [box.x, box.y-(th+padxy+2), split, box.y-2*(th+padxy+2), 180], // short side
+  [th+padxy+2, box.y, split, box.x-2*(th+padxy+2), -90], // long side
+];
+lips = [lips_b,lips_b,lips_a,lips_z];
 lip  = lips[rpi];
 
 // Device/connector cutouts
 //   [position], [size], [hole adj], [size adj]
 // Relates to board not box
 // So need to add th+padxy to x,y and th+padbot+board.z to z
-gpio    = [[ 7.2,50.0, 0.0],[50.0, 5.1, 9.0],[ 0.0, 0.0, 0.0],[ 0.0, 0.0, 0.0]];
+gpio    = [[ 7.2,50.0, 0.0],[51.0, 5.1, 9.0],[ 0.0, 0.0, 0.0],[ 0.0, 0.0, 0.0]];
 ethusb  = [[65.5, 2.0, 0.0],[21.2,52.0,16.0],[ 0.0,-2.0, 0.0],[ 5.0, 4.0, 0.0]];
 micro   = [[ 6.5,-1.5, 0.0],[ 8.0, 6.0, 3.0],[-1.0,-4.0, 0.0],[ 2.0, 4.0, 1.0]];
 micro_e = [[ 6.5,-1.5, 0.0],[ 8.0, 6.0, 3.0],[-3.0,-2.5,-1.0],[ 6.0,-4.5, 3.0]];
@@ -107,23 +239,36 @@ usbc_e  = [[ 6.7,-1.2, 0.1],[ 9.0, 7.3, 3.2],[-2.5,-2.5,-1.0],[32.5,-6.0, 3.0]];
 mhdmi1  = [[22.3, 0.0, 0.0],[ 7.4, 8.2, 3.3],[-1.0,-4.0, 0.0],[ 2.0, 4.0, 0.0]];
 mhdmi2  = [[35.8, 0.0, 0.0],[ 7.4, 8.2, 3.3],[-1.0,-4.0, 0.0],[ 2.0, 4.0, 0.0]];
 usb_a   = [[53.0,23.8, 0.0],[14.0,15.4, 7.5],[ 0.0,-0.5, 0.0],[ 5.0, 1.0, 0.5]];
+gpio_z  = [[ 7.2,24.0, 0.0],[51.0, 5.1, 9.0],[ 0.0, 0.0, 0.0],[ 0.0, 0.0, 0.0]];
+sd_z    = [[-3.0,11.0, 0.0],[16.0,12.0, 2.5],[-3.0,-1.0,-1.5],[-7.0, 2.0, 2.5]];
+sd_ze   = [[-3.0,11.0, 0.0],[16.0,12.0, 2.5],[-13.5, -1.0,-6.0],[ 0.0, 2.0, 9.0]];
+hdmi_z  = [[ 6.4,-1.0, 0.0],[12.0, 8.5, 4.0],[-1.0,-4.0, 0.0],[ 2.0, 4.0, 0.0]];
+hdmi_ze = [[ 6.4,-1.0, 0.0],[12.0, 8.5, 4.0],[-4.0,-10, -2.0],[ 8.0, 0.0, 4.0]];
+uusb_d  = [[37.9,-1.0, 0.0],[ 7.0, 6.0, 3.0],[-1.0,-4.0, 0.0],[ 2.0, 4.0, 0.0]];
+uusb_p  = [[50.5,-1.0, 0.0],[ 7.0, 6.0, 3.0],[-1.0,-4.0, 0.0],[ 2.0, 4.0, 0.0]];
+uusb_e  = [[37.9,-1.0, 0.0],[ 7.0, 6.0, 3.0],[-4.0,-7.5,-1.5],[20.0, 0.0, 3.0]];
 
 dev = [
     [gpio,ethusb,micro,hdmi,sd,audio],          // 2,3 B+
     [gpio,ethusb,usbc,mhdmi1,mhdmi2,sd,audio],  // 4 B+
     [gpio,micro,hdmi,sd,audio,usb_a],           // A+
+    [gpio_z,sd_z,hdmi_z,uusb_d,uusb_p]          // Zero
 ];
 
 dev_e = [
     [micro_e],  // 2,3 B+
     [usbc_e],   // 4 B+
     [micro_e],  // A+
+    [uusb_e,hdmi_ze,sd_ze]
 ];
 
 // Devices on the board
 devices = dev[rpi];
 // Additional cutouts
 extras = dev_e[rpi];
+// Optional gpio cutout
+gpiocut = [gpio,gpio,gpio,gpio_z];
+gpco = gpiocut[rpi];
 
 if (show_cutouts) {
     translate([th+padxy, th+padxy, th+padbot+board.z]) {
@@ -133,6 +278,8 @@ if (show_cutouts) {
           }
       }
     }
+    
+    md_show_cutouts();
 }
 
 // Board
@@ -145,6 +292,8 @@ if (show_board) {
             }
         }
     }
+    
+    md_show_board();
 }
 
 // Bottom
@@ -183,9 +332,19 @@ module build_base () {
             build_lips(true);
         }
 
-        // If building for a test, remove bulk
-        if (testbuild) {
-            translate([10,10,-1]) cube(box-[20,20,0]);
+        union() {
+            // And optionally vents
+            if (addvents) {
+                translate([th+padxy, th+padxy, 0]) {
+                    translate([0,0,1.8]) cube([box.x-2*(th+padxy), box.y-2*(th+padxy),0.5]);
+                    add_vents(box.x-2*(th+padxy), box.y-2*(th+padxy));
+                }
+            }
+            
+            // If building for a test, remove bulk
+            if (testbuild) {
+                translate([10,10,-1]) cube(box-[20,20,0]);
+            }
         }
     }
 }
@@ -203,7 +362,23 @@ module build_top () {
             
             // And opitonally GPIO
             if (gpiogap) {
-                translate(gpio[0]) cube(gpio[1]+[0,0,box.z]);
+                gpiogap();
+
+                // And optionally vents - avoiding GPIO cutout
+                if (addvents) {
+                    translate([th+padxy, th+padxy, box.z-th]) {
+                        add_vents(box.x-2*(th+padxy), gpco[0].y);
+                    }
+                }
+            }
+            else
+            {
+                // And optionally vents
+                if (addvents) {
+                    translate([th+padxy, th+padxy, box.z-th]) {
+                        add_vents(box.x-2*(th+padxy), box.y-2*(th+padxy));
+                    }
+                }
             }
             
             // If building for a test, remove bulk
@@ -214,8 +389,13 @@ module build_top () {
     }
 
     // Add clamps for the standoffs
-    for (m=mountholes) {
-        addclamp(m+[th+padxy,th+padxy,th+padbot+board.z], standoff_d, padtop);
+    for (m=mountholes[rpi]) {
+        if (md_padbot > 0) {
+            // Don't build clamps between the boards
+            addclamp(m+[th+padxy,th+padxy,th+padbot+board.z+md_padbot+md_board.z], standoff_d, md_padtop);
+        } else {
+            addclamp(m+[th+padxy,th+padxy,th+padbot+board.z], standoff_d, padtop);
+        }
     }
 
 }
@@ -226,7 +406,7 @@ module case () {
         cutouts();
     }
     
-    for (m=mountholes) {
+    for (m=mountholes[rpi]) {
         standoff(m+[th+padxy,th+padxy,th], standoff_d, padbot);
     }
 }
@@ -278,7 +458,7 @@ module addclamp (so, d, h) {
         difference() {
             cylinder(d=d, h=h, $fn=10);
             translate([0,0,-0.1])
-                cylinder(d=mounthole_d, h=3, $fn=10);
+                cylinder(d=clamphole_d, h=3, $fn=10);
         }
     }
 }
@@ -290,6 +470,15 @@ module cutouts() {
         }
         for (e=extras) {
             translate(e[0]+e[2]) cube(e[1]+e[3]);
+        }
+        md_cutouts();
+    }
+}
+
+module gpiogap() {
+    translate([th+padxy, th+padxy, th+padbot+board.z]) {
+        translate(gpco[0]) {
+            cube(gpco[1]+[0,0,box.z]);
         }
     }
 }
@@ -332,6 +521,25 @@ module build_lip (len) {
                 translate([th*0.5, th*0.75])
                     scale([ovl, 1])
                         circle(d=th*0.5, $fn=10);
+            }
+        }
+    }
+}
+
+vent_d = 3;
+vent_sp = 5; // minimum spacing
+vent_ofs = 7;
+module add_vents (xsize, ysize) {
+    ventx = xsize-2*vent_ofs;
+    venty = ysize-2*vent_ofs;
+    numx = floor((ventx-vent_d) / vent_sp);
+    numy = floor((venty-vent_d) / vent_sp);
+    xsp  = (ventx-vent_d)/numx;
+    ysp  = (venty-vent_d)/numy;
+    for (xpos = [vent_ofs : xsp : ventx+xsp]) {
+        for (ypos = [vent_ofs : ysp : venty+ysp]) {
+            translate([xpos+vent_d/2, ypos+vent_d/2, -0.2]) {
+                cylinder(h=th+0.2, d=vent_d, $fn=10);
             }
         }
     }
