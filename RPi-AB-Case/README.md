@@ -21,8 +21,8 @@ View options:
 * Show visible representations of the cutouts.
 
 Main files:
-* RPi AB Case.scad - "all in one" file with customisable elements built in.
-* RPi AB Case - Custom.scad - the same file, but now includes all customisable elements from the external file RPi-CustomBlank.scad.
+* RPi AB Case.scad - The file to open that uses the code in the following to make one of the cases.
+* RPiABCaseModule.scad - The main code as an includable module, that builds the case.
 
 If you like what you see, you can buy me a Ko-Fi - https://ko-fi.com/diyelectromusic
 
