@@ -32,6 +32,22 @@
 //  https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#schematics-and-mechanical-drawings
 //
 
+// Basic layering is as follows:
+//
+//   ==== Top: thickness=th
+//           Gap = md_ext.z or pad.z if no addon board
+//   ---- addon board: thickness = md_board.z
+//           Gap = md_pad.z or 0 if no addon board
+//   ---- Rpi board: thickness = board.z
+//           Gap = pad.z
+//   ==== Bottom: thickness=th
+//
+// So height of the box with an addon board
+//     box.z  = 2*th+pad.z+board.z+md_pad.z+md_board.z+md_ext.z
+//
+// Or height of the box without an addon board
+//     box.z  = 2*th+pad.z+board.z+padtop
+
 th = 2;
 pad = [1.5, 1.5, 3];
 
@@ -48,11 +64,11 @@ board = boards[rpi];
 // Note: A+/Zero can be shorter
 toppadding = [ 21, 21, 13, 13 ];
 
-// If there is a custom add-on board, then use that paddtop value here
+// If there is a custom add-on board, then use that paddtop value here.
 // Assumes that original padtop value is accounted for in the custom
-// board's md_pad.z value...
+// board's md_pad.z+md_ext.z values somehow...
 padtop = md_ext.z > 0 ? md_ext.z : toppadding[rpi];
-box = board + [th*2+pad.x*2, th*2+pad.y*2, th*2+padtop+pad.z+md_pad.z+md_board.z];
+box = board + [th*2,th*2,th*2] + [pad.x*2,pad.y*2,padtop+pad.z] + [0,0,md_pad.z+md_board.z];
 cornerrounding = 4;
 
 ////////////////////////////////////////////////////////////////////
@@ -66,9 +82,10 @@ cornerrounding = 4;
 // are all setup properly for the custom board.
 //
 
-// Function to colour in the additional cutouts if present
+// Function to colour in the additional cutouts if present.
+// Origin = box origin.
 module md_show_cutouts() {
-    translate(pad + md_pad + [th,th,th+board.z+md_board.z]) {
+    translate([th,th,th] + pad + [0,0,board.z] + md_pad + [0,0,md_board.z]) {
       color("Purple") {
           for (mtd=md_devices) {
             translate(mtd[0]+mtd[2]) {
@@ -86,9 +103,10 @@ module md_show_cutouts() {
     }
 }
 
-// Function to show the additional board
+// Function to show the additional board.
+// Origin = box origin.
 module md_show_board () {
-    translate(pad + md_pad + [th,th,th+board.z]) {
+    translate([th,th,th] + pad + [0,0,board.z] + md_pad) {
         color("green") cube(md_board);
         color("silver") {
             for (mdd=md_devices) {
@@ -98,13 +116,14 @@ module md_show_board () {
     }
 }
 
-// Function to add in the additional cutouts if present
+// Function to add in the additional cutouts if present.
+// Origin = box origin.
 module md_cutouts () {
-    translate(md_pad+[0,0,md_board.z]) {
+    translate([th,th,th] + pad + [0,0,board.z] + md_pad + [0,0,md_board.z]) {
         for (mdd=md_devices) {
             translate(mdd[0]+mdd[2]) {
                 if (mdd[4] == 1) {
-                    cylinder(h=mdd[1].z+mdd[3].z, d=mdd[1].x+mdd[3].x, $fn=10);
+                    cylinder(h=mdd[1].z+mdd[3].z, d=mdd[1].x+mdd[3].x, $fn=20);
                 } else {
                     cube(mdd[1]+mdd[3]);
                 }
@@ -136,7 +155,7 @@ mh_z = [  // Zero
 [3.5+58, 3.5+23, 0],
 [3.5+58, 3.5,    0]
 ];
-mounthole_d = 2.5;
+mounthole_d = 2.0;
 standoff_d = 6.0;
 clamphole_d = 3.0;
 mountholes = [mh, mh, mh, mh_z];
@@ -217,7 +236,7 @@ gpiocut = [gpio,gpio,gpio,gpio_z];
 gpco = gpiocut[rpi];
 
 if (show_cutouts) {
-    translate(pad + [th,th,th+board.z]) {
+    translate([th,th,th] + pad + [0,0,board.z]) {
       color("Purple") {
           for (td=devices) {
             translate(td[0]+td[2]) cube(td[1]+td[3]);
@@ -230,7 +249,7 @@ if (show_cutouts) {
 
 // Board
 if (show_board) {
-    translate(pad + [th,th,th]) {
+    translate([th,th,th] + pad) {
         color("green") cube(board);
         color("silver") {
             for (d=devices) {
@@ -284,7 +303,6 @@ module build_base () {
             // And optionally vents
             if (botvents) {
                 translate([-md_ext.x+th+pad.x, th+pad.y, 0]) {
-                    translate([0,0,1.8]) cube([md_ext.x+box.x-2*(th+pad.x), md_ext.y+box.y-2*(th+pad.y),0.5]);
                     add_vents(md_ext.x+box.x-2*(th+pad.x), md_ext.y+box.y-2*(th+pad.y));
                 }
             }
@@ -294,6 +312,10 @@ module build_base () {
                 translate([10,10,-1]) cube(box-[20,20,0]);
             }
         }
+    }
+    
+    for (m=mountholes[rpi]) {
+        standoff([th,th,th]+[pad.x,pad.y,-0.5]+m, standoff_d, pad.z+0.5);
     }
 }
 
@@ -323,7 +345,7 @@ module build_top () {
             {
                 // And optionally vents
                 if (topvents) {
-                    translate([-md_ext.x+th+pad.x, th+pad.y, box.z-th]) {
+                    translate([th+pad.x-md_ext.x, th+pad.y, box.z-th]) {
                         add_vents(md_ext.x+box.x-2*(th+pad.x), md_ext.y+box.y-2*(th+pad.y));
                     }
                 }
@@ -341,9 +363,9 @@ module build_top () {
         for (m=mountholes[rpi]) {
             if (md_pad.z > 0) {
                 // Don't build clamps between the boards
-                addclamp(m+pad+[th,th,th+board.z+md_pad.z+md_board.z], standoff_d, md_ext.z);
+                addclamp([th,th,th] + pad + m + [0,0,board.z+md_pad.z+md_board.z], standoff_d, md_ext.z);
             } else {
-                addclamp(m+pad+[th,th,th+board.z], standoff_d, padtop);
+                addclamp([th,th,th] + pad + m + [0,0,board.z], standoff_d, padtop);
             }
         }
     }
@@ -356,78 +378,76 @@ module case () {
         }
         cutouts();
     }
-    
-    for (m=mountholes[rpi]) {
-        standoff(m+[th+pad.x,th+pad.y,th], standoff_d, pad.z);
-    }
 }
 
 module outerbox(box,r,th){
     //spheres at the corners of a box and run hull over it
-    out = box  - 2 * [r,r,r];
-    in = box  - 2 * [r,r,r] - [th*2,th*2,th*2];
+    out = box - 2*[r,r,r];
+    in  = box - 2*[r,r,r] - 2*[th,th,th];
     rad=[r,r,r];
     difference(){
         hull(){
-            translate(rad+[0,0,0]) sphere(r);
-            translate(rad+[0,0,out[2]]) sphere(r);
-            translate(rad+[0,out[1],0]) sphere(r);
-            translate(rad+[0,out[1],out[2]]) sphere(r);
-            translate(rad+[out[0],0,0]) sphere(r);
-            translate(rad+[out[0],0,out[2]]) sphere(r);
-            translate(rad+[out[0],out[1],0]) sphere(r);
-            translate(rad+[out[0],out[1],out[2]]) sphere(r);
+            translate(rad) {
+                translate([0,0,0]) sphere(r);
+                translate([0,0,out.z]) sphere(r);
+                translate([0,out.y,0]) sphere(r);
+                translate([0,out.y,out.z]) sphere(r);
+                translate([out.x,0,0]) sphere(r);
+                translate([out.x,0,out.z]) sphere(r);
+                translate([out.x,out.y,0]) sphere(r);
+                translate([out.x,out.y,out.z]) sphere(r);
+            }
         }
         hull(){
-            translate([th,th,th]) {
-                translate(rad+[0,0,0]) sphere(r);
-                translate(rad+[0,0,in[2]]) sphere(r);
-                translate(rad+[0,in[1],0]) sphere(r);
-                translate(rad+[0,in[1],in[2]]) sphere(r);
-                translate(rad+[in[0],0,0]) sphere(r);
-                translate(rad+[in[0],0,in[2]]) sphere(r);
-                translate(rad+[in[0],in[1],0]) sphere(r);
-                translate(rad+[in[0],in[1],in[2]]) sphere(r);
+            translate(rad + [th,th,th]) {
+                translate([0,0,0]) sphere(r);
+                translate([0,0,in.z]) sphere(r);
+                translate([0,in.y,0]) sphere(r);
+                translate([0,in.y,in.z]) sphere(r);
+                translate([in.x,0,0]) sphere(r);
+                translate([in.x,0,in.z]) sphere(r);
+                translate([in.x,in.y,0]) sphere(r);
+                translate([in.x,in.y,in.z]) sphere(r);
             }
         }
     }
 }
 
 module standoff (so, d, h) {
-    translate([so.x, so.y, so.z])
-        cylinder(d=d, h=h, $fn=10);
+    translate(so)
+        cylinder(d=d, h=h, $fn=20);
 
-    translate([so.x, so.y, so.z+h])
-        cylinder(d=mounthole_d, h=board.z, $fn=10);
+    translate(so+[0,0,h])
+        cylinder(d=mounthole_d, h=board.z, $fn=20);
 
-    translate([so.x, so.y, so.z+h+board.z])
-        sphere(d=mounthole_d, $fn=10);
+    translate(so+[0,0,h+board.z])
+        sphere(d=mounthole_d, $fn=20);
 }
 
 module addclamp (so, d, h) {
-    translate([so.x, so.y, so.z]) {
+    translate(so) {
         difference() {
-            cylinder(d=d, h=h, $fn=10);
+            cylinder(d=d, h=h, $fn=20);
             translate([0,0,-0.1])
-                cylinder(d=clamphole_d, h=3, $fn=10);
+                cylinder(d=clamphole_d, h=3, $fn=20);
         }
     }
 }
 
 module cutouts() {
-    translate(pad+[th,th,th+board.z]) {
+    translate([th,th,th] + pad + [0,0,board.z]) {
         for (d=devices) {
             translate(d[0]+d[2]) cube(d[1]+d[3]);
         }
         for (e=extras) {
             translate(e[0]+e[2]) cube(e[1]+e[3]);
         }
-        md_cutouts();
     }
+    md_cutouts();
 }
 
 module gpiogap() {
-    translate(pad+[th,th,th+board.z]) {
+    translate([th,th,th] + pad + [0,0,board.z]) {
         translate(gpco[0]) {
             cube(gpco[1]+[0,0,box.z]);
         }
@@ -466,12 +486,12 @@ module build_lip (len) {
                     // inny bit
                     translate([th*0.5, th*0.25])
                         scale([ovl, 1])
-                            circle(d=th*0.5, $fn=10);
+                            circle(d=th*0.5, $fn=20);
                 }
                 // outy bit
                 translate([th*0.5, th*0.75])
                     scale([ovl, 1])
-                        circle(d=th*0.5, $fn=10);
+                        circle(d=th*0.5, $fn=20);
             }
         }
     }
@@ -489,8 +509,8 @@ module add_vents (xsize, ysize) {
     ysp  = (venty-vent_d)/numy;
     for (xpos = [vent_ofs : xsp : ventx+xsp]) {
         for (ypos = [vent_ofs : ysp : venty+ysp]) {
-            translate([xpos+vent_d/2, ypos+vent_d/2, -0.2]) {
-                cylinder(h=th+0.2, d=vent_d, $fn=10);
+            translate([xpos+vent_d/2, ypos+vent_d/2, -0.1]) {
+                cylinder(h=th+0.25, d=vent_d, $fn=20);
             }
         }
     }
