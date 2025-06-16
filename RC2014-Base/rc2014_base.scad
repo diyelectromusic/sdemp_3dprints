@@ -39,8 +39,15 @@
 //  y=L  x=W->
 //
 
+// Which baseplate to build
+//   0 = base 5
+//   1 = base 8
+rc2014 = 1;
+
+widths=[70, 127]; // Base5, Base8 pcb widths in mm
+
 tol=0.5;    // Tolerance either side of the PCB
-pcbw=127;   // Actual width of the PCB
+pcbw=widths[rc2014];   // Actual width of the PCB
 pcbl=127;   // Actual length of the PCB
 pcbth=1.6;  // Thickness of the PCB
 pcbh=3;     // Height of PCB above base
@@ -63,8 +70,8 @@ boxr=pcbr+th+tol;
 
 // PCB mount hole dimensions
 pcbhole=6;           // X/Y offset from corner of PCB
-mounthole=1.8;       // Radius of mounting point = hole radius less a tolerance
-mounthole_h=pcbth;   // Height of mounting point (plus bit extra due to dome shape)
+mounthole=1.5;       // Radius of mounting point = hole radius less a tolerance
+mounthole_h=pcbth+1;   // Height of mounting point (plus bit extra due to dome shape)
 mountsupport=3;      // Radius of support
 mountsupport_h=pcbh; // Height of support = height of PCB
 
@@ -83,7 +90,7 @@ union() {
         }
         // cutout for power socket
         translate([43+pcbx,boxl-5,th+pcbh+pcbth])
-            cube([9,9,9]);
+            cube([10,10,10]);
     }
 
     standoff([mo,mo,th],mountsupport,mountsupport_h,mounthole,mounthole_h);
@@ -92,10 +99,16 @@ union() {
     standoff([boxw-mo,boxl-mo,th],mountsupport,mountsupport_h,mounthole,mounthole_h);
 
     translate([pcbx,pcby,th]) {
-        pcbsupport([12,12,0]);
-        pcbsupport([44,12,0]);
-        pcbsupport([79,12,0]);
-        pcbsupport([111,12,0]);
+        if (rc2014==1) { // Base 8
+            pcbsupport([12,12,0]);
+            pcbsupport([44,12,0]);
+            pcbsupport([79,12,0]);
+            pcbsupport([111,12,0]);
+        }
+        if (rc2014==0) { // Base 5
+            pcbsupport([11,12,0]);
+            pcbsupport([59-pcbsupw,12,0]);
+        }
     }
 }
 // Test cutout

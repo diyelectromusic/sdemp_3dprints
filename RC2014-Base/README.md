@@ -1,8 +1,8 @@
 # RC2014 Base
 
-OpenSCAD source and STL files for a basic RC2014 base for the Backplane-8.
+OpenSCAD source and STL files for a basic RC2014 base for the Backplane-8 or Backplane-5.
 
-Printing time approx 2.5 hours.
+Printing time approx 2.5 hours (8) or 1.5 hours (5).
 
 If you like what you see, you can buy me a Ko-Fi - https://ko-fi.com/diyelectromusic
 
