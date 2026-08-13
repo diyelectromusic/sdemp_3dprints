@@ -123,5 +123,5 @@ if (show_base) {
 // Main RPI SCAD definitions
 //
 ////////////////////////////////////////////////////////////////////
-include <RPIABCaseModule.scad>
+include <RPiABCaseModule.scad>
 

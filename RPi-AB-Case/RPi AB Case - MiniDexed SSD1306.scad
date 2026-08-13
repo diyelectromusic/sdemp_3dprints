@@ -109,5 +109,5 @@ md_ext = [0,0,15];
 // Main RPI SCAD definitions
 //
 ////////////////////////////////////////////////////////////////////
-include <RPIABCaseModule.scad>
+include <RPiABCaseModule.scad>
 
